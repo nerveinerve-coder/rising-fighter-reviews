@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>라이징 파이터 후기 · Rising-fighter Reviews</title>
+<meta name="description" content="라이징 파이터를 플레이한 사람들의 진짜 후기. 당신의 파이터 이야기를 남겨주세요.">
+<meta property="og:title" content="라이징 파이터 플레이어 후기">
+<meta property="og:description" content="무명에서 챔피언까지 — 당신의 후기를 남겨주세요.">
+
+<!-- ============================================================
+   ⚙️ 설정 (SETUP_셋업가이드.md 참고)
+   아래 두 값을 본인 Supabase 프로젝트 값으로 바꾸면 '실서비스'가 됩니다.
+   바꾸기 전까지는 자동으로 '데모 모드'(내 브라우저에만 저장)로 작동합니다.
+============================================================ -->
+<script>
+  const SUPABASE_URL      = "https://ldyxscsnpvoifrjnlidy.supabase.co";  // ← 교체
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkeXhzY3NucHZvaWZyam5saWR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MTYxMjAsImV4cCI6MjA5NjQ5MjEyMH0.7tllo0XLiiERgxDGDR4fHRk0cSL13PN6JoRpS9S6waU";                     // ← 교체
+  const BETA_URL          = "https://rising-fighter.vercel.app"; // 게임 베타 링크
+  const REVIEW_COOLDOWN_HOURS = 6; // 같은 기기에서 후기 재작성 제한 시간(스팸 방지)
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --bg:#0d0d10; --panel:#16161c; --panel2:#1d1d25; --line:#2a2a34;
+    --red:#e63027; --red-d:#b81f18; --gold:#f2c14e; --green:#3ddc84;
+    --txt:#f4f4f6; --muted:#9a9aa6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Pretendard','Apple SD Gothic Neo',-apple-system,'Segoe UI',sans-serif;
+    background:var(--bg);color:var(--txt);line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:900px;margin:0 auto;padding:0 18px}
+  button{font-family:inherit;cursor:pointer}
+
+  /* TOP BAR */
+  .topbar{position:sticky;top:0;z-index:30;background:rgba(13,13,16,.9);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line)}
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+  .brand{font-weight:900;font-size:18px;letter-spacing:-.01em}
+  .brand .hl{color:var(--red)}
+  .top-actions{display:flex;gap:8px;align-items:center}
+  .lang{background:transparent;border:1px solid var(--line);color:var(--txt);border-radius:8px;
+    padding:7px 11px;font-size:13px;font-weight:700}
+  .lang:hover{border-color:var(--red)}
+
+  /* HERO */
+  .hero{text-align:center;padding:44px 0 26px;
+    background:radial-gradient(900px 300px at 50% -20%, rgba(230,48,39,.22), transparent 60%)}
+  .hero h1{font-size:clamp(26px,5vw,40px);font-weight:900;line-height:1.15}
+  .hero h1 .hl{color:var(--red)}
+  .hero p{color:var(--muted);margin-top:10px;font-size:15px}
+  .stats{display:flex;gap:26px;justify-content:center;margin-top:20px}
+  .stat b{display:block;font-size:26px;font-weight:900;color:var(--gold)}
+  .stat span{font-size:12px;color:var(--muted)}
+  .hero-cta{margin-top:22px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .btn{font-weight:800;font-size:15px;padding:13px 22px;border-radius:11px;border:none;text-decoration:none;display:inline-block;transition:transform .12s}
+  .btn:hover{transform:translateY(-2px)}
+  .btn-primary{background:var(--red);color:#fff;box-shadow:0 6px 20px rgba(230,48,39,.35)}
+  .btn-ghost{background:transparent;color:var(--txt);border:1px solid var(--line)}
+
+  /* SORT */
+  .sortbar{display:flex;gap:8px;justify-content:center;margin:8px 0 22px}
+  .chip{background:var(--panel);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:7px 15px;font-size:13px;font-weight:700}
+  .chip.active{background:rgba(230,48,39,.16);border-color:var(--red);color:#fff}
+
+  /* FEED */
+  .feed{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px;padding-bottom:60px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+  .card .media{width:100%;aspect-ratio:4/3;object-fit:cover;background:#0a0a0d;display:block}
+  .card .media-vid{width:100%;aspect-ratio:4/3;background:#000}
+  .card .body{padding:16px;display:flex;flex-direction:column;gap:10px;flex:1}
+  .crow{display:flex;align-items:center;justify-content:space-between}
+  .who{display:flex;align-items:center;gap:9px}
+  .ava{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--red),#7a1410);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff}
+  .nick{font-weight:700;font-size:14px}
+  .date{font-size:11px;color:var(--muted)}
+  .stars{color:var(--gold);font-size:15px;letter-spacing:1px}
+  .text{font-size:14px;color:#e7e7ec;white-space:pre-wrap;word-break:break-word}
+  .card .foot{margin-top:auto;display:flex;gap:8px}
+  .mini{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:8px;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:5px}
+  .mini:hover{color:#fff;border-color:var(--red)}
+  .empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:60px 0}
+
+  /* FLOATING WRITE BUTTON (mobile) */
+  .fab{position:fixed;right:18px;bottom:18px;z-index:25;background:var(--red);color:#fff;border:none;
+    border-radius:999px;padding:15px 22px;font-weight:800;font-size:15px;box-shadow:0 8px 26px rgba(230,48,39,.5)}
+
+  /* MODAL */
+  .modal{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.7);display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 14px}
+  .modal.open{display:flex}
+  .sheet{background:var(--panel);border:1px solid var(--line);border-radius:18px;width:100%;max-width:480px;padding:24px}
+  .sheet h2{font-size:20px;font-weight:900;margin-bottom:4px}
+  .sheet .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:13px;font-weight:700;margin-bottom:7px}
+  input[type=text],textarea{width:100%;background:#0e0e13;border:1px solid var(--line);color:var(--txt);
+    border-radius:10px;padding:12px;font-size:15px;font-family:inherit}
+  input:focus,textarea:focus{outline:none;border-color:var(--red)}
+  textarea{resize:vertical;min-height:96px}
+  .starpick{display:flex;gap:6px;font-size:30px;color:var(--line)}
+  .starpick span{cursor:pointer;transition:transform .1s}
+  .starpick span:hover{transform:scale(1.15)}
+  .starpick span.on{color:var(--gold)}
+  .drop{border:1.5px dashed var(--line);border-radius:12px;padding:18px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer}
+  .drop:hover{border-color:var(--red);color:#fff}
+  .drop .hint{font-size:11px;margin-top:4px;opacity:.8}
+  .preview{margin-top:10px;border-radius:10px;max-height:200px;width:100%;object-fit:contain;display:none;background:#000}
+  .hp{position:absolute;left:-9999px;opacity:0;height:0;width:0} /* honeypot */
+  .submit{width:100%;background:var(--red);color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:800}
+  .submit:disabled{opacity:.5}
+  .closex{float:right;background:none;border:none;color:var(--muted);font-size:22px;line-height:1}
+  .note{font-size:12px;color:var(--muted);text-align:center;margin-top:10px}
+  .demo-banner{background:rgba(242,193,78,.12);border:1px solid rgba(242,193,78,.4);color:var(--gold);
+    font-size:12.5px;text-align:center;padding:9px;border-radius:0}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:#08160c;
+    font-weight:800;padding:13px 22px;border-radius:12px;z-index:80;display:none;font-size:14px}
+
+  /* CAPTURE CARD (인스타용 내보내기) */
+  .capwrap{width:100%;max-width:420px}
+  .capcard{width:1080px;transform-origin:top left;background:linear-gradient(160deg,#15151b,#0d0d10);
+    border:2px solid var(--red);border-radius:36px;padding:90px 80px;color:#fff;position:relative}
+  .capcard .ribbon{display:inline-block;background:var(--red);color:#fff;font-weight:900;font-size:30px;
+    padding:14px 30px;border-radius:999px;letter-spacing:.04em}
+  .capcard .capstars{color:var(--gold);font-size:78px;margin:40px 0 10px;letter-spacing:8px}
+  .capcard .captext{font-size:54px;font-weight:800;line-height:1.4;margin:18px 0 50px;word-break:break-word}
+  .capcard .capwho{display:flex;align-items:center;gap:26px}
+  .capcard .capava{width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,var(--red),#7a1410);
+    display:flex;align-items:center;justify-content:center;font-weight:900;font-size:44px}
+  .capcard .capnick{font-size:42px;font-weight:800}
+  .capcard .capbrand{position:absolute;bottom:70px;right:80px;font-size:34px;font-weight:900;color:var(--gold)}
+  .capcard .caplogo{font-size:34px;font-weight:900}.caplogo .hl{color:var(--red)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <div class="brand"><span class="hl">RISING</span>-FIGHTER <span style="color:var(--muted);font-weight:600;font-size:13px" data-i18n="reviews">후기</span></div>
+    <div class="top-actions">
+      <button class="lang" id="langBtn">EN</button>
+      <a class="btn btn-primary" style="padding:9px 16px;font-size:14px" href="#" id="writeTop" data-i18n="write">후기 쓰기</a>
+    </div>
+  </div>
+</div>
+
+<div id="demoBanner" class="demo-banner" style="display:none"></div>
+
+<div class="hero">
+  <div class="wrap">
+    <h1 data-i18n="heroTitle">당신의 파이터, <span class="hl">어디까지</span> 키웠나요?</h1>
+    <p data-i18n="heroSub">라이징 파이터를 플레이한 사람들의 진짜 후기. 당신의 이야기도 남겨주세요.</p>
+    <div class="stats">
+      <div class="stat"><b id="statCount">0</b><span data-i18n="statReviews">후기</span></div>
+      <div class="stat"><b id="statAvg">–</b><span data-i18n="statAvg">평균 별점</span></div>
+    </div>
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="#" id="writeHero" data-i18n="writeReview">✍️ 후기 남기기</a>
+      <a class="btn btn-ghost" id="playBtn" target="_blank" rel="noopener" data-i18n="play">🎮 게임 플레이</a>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="sortbar">
+    <button class="chip active" data-sort="new" data-i18n="sortNew">최신순</button>
+    <button class="chip" data-sort="top" data-i18n="sortTop">별점순</button>
+    <button class="chip" data-sort="media" data-i18n="sortMedia">사진/영상</button>
+  </div>
+  <div class="feed" id="feed"></div>
+</div>
+
+<button class="fab" id="writeFab" data-i18n="write">후기 쓰기</button>
+
+<!-- 작성 모달 -->
+<div class="modal" id="writeModal">
+  <div class="sheet">
+    <button class="closex" data-close>×</button>
+    <h2 data-i18n="modalTitle">후기 남기기</h2>
+    <p class="sub" data-i18n="modalSub">로그인 없이 바로! 사진을 같이 올리면 카드로 만들어 인스타에 소개될 수 있어요 📸</p>
+    <form id="reviewForm">
+      <div class="field">
+        <label data-i18n="fRating">별점</label>
+        <div class="starpick" id="starpick">
+          <span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span><span data-v="4">★</span><span data-v="5">★</span>
+        </div>
+      </div>
+      <div class="field">
+        <label data-i18n="fNick">닉네임</label>
+        <input type="text" id="nick" maxlength="20" placeholder="예: 레드폭스조련사" required>
+      </div>
+      <div class="field">
+        <label data-i18n="fBody">후기</label>
+        <textarea id="body" maxlength="500" placeholder="어떤 파이터를 키웠나요? 가장 재밌던 선택은?" required></textarea>
+      </div>
+      <div class="field">
+        <label data-i18n="fMedia">사진 / 영상 (선택)</label>
+        <div class="drop" id="drop">
+          <div data-i18n="dropMain">📷 사진 추가 (영상도 가능)</div>
+          <div class="hint" data-i18n="dropHint">사진 권장 · 사진 10MB / 영상 50MB 이하</div>
+        </div>
+        <input type="file" id="file" accept="image/*,video/*" style="display:none">
+        <img class="preview" id="previewImg">
+        <video class="preview" id="previewVid" controls></video>
+      </div>
+      <!-- honeypot: 사람에겐 안 보임, 봇이 채우면 차단 -->
+      <input type="text" class="hp" id="website" tabindex="-1" autocomplete="off">
+      <button type="submit" class="submit" id="submitBtn" data-i18n="submit">후기 등록</button>
+      <p class="note" data-i18n="noteSpam">한 기기당 일정 시간에 1개만 등록할 수 있어요.</p>
+    </form>
+  </div>
+</div>
+
+<!-- 카드 내보내기 모달 -->
+<div class="modal" id="capModal">
+  <div class="sheet" style="max-width:460px">
+    <button class="closex" data-close>×</button>
+    <h2 data-i18n="capTitle">인스타용 카드</h2>
+    <p class="sub" data-i18n="capSub">PNG로 저장해서 스토리·게시물·릴스 배경으로 쓰세요.</p>
+    <div class="capwrap"><div id="capStage"></div></div>
+    <button class="submit" id="capSave" style="margin-top:16px" data-i18n="capSave">📥 이미지로 저장</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ i18n ============ */
+const I18N = {
+  ko:{ reviews:"후기", write:"후기 쓰기", heroTitle:'당신의 파이터, <span class="hl">어디까지</span> 키웠나요?',
+    heroSub:"라이징 파이터를 플레이한 사람들의 진짜 후기. 당신의 이야기도 남겨주세요.",
+    statReviews:"후기", statAvg:"평균 별점", writeReview:"✍️ 후기 남기기", play:"🎮 게임 플레이",
+    sortNew:"최신순", sortTop:"별점순", sortMedia:"사진/영상", modalTitle:"후기 남기기",
+    modalSub:"로그인 없이 바로! 사진을 같이 올리면 카드로 만들어 인스타에 소개될 수 있어요 📸",
+    fRating:"별점", fNick:"닉네임", fBody:"후기", fMedia:"사진 / 영상 (선택)",
+    dropMain:"📷 사진 추가 (영상도 가능)", dropHint:"사진 권장 · 사진 10MB / 영상 50MB 이하",
+    submit:"후기 등록", noteSpam:"한 기기당 일정 시간에 1개만 등록할 수 있어요.",
+    capTitle:"인스타용 카드", capSub:"PNG로 저장해서 스토리·게시물·릴스 배경으로 쓰세요.", capSave:"📥 이미지로 저장",
+    empty:"아직 후기가 없어요. 첫 후기의 주인공이 되어주세요! 🥊", card:"📸 카드", share:"🔗 공유",
+    okSubmit:"후기가 등록됐어요! 고마워요 🥊", errCooldown:"잠시 후 다시 등록할 수 있어요 (스팸 방지).",
+    errFields:"별점·닉네임·후기를 모두 채워주세요.", errBig:"파일이 너무 큽니다.", uploading:"등록 중...",
+    copied:"링크를 복사했어요!" },
+  en:{ reviews:"Reviews", write:"Write", heroTitle:'How far did <span class="hl">you</span> take your fighter?',
+    heroSub:"Real reviews from Rising-fighter players. Share your story too.",
+    statReviews:"Reviews", statAvg:"Avg rating", writeReview:"✍️ Write a review", play:"🎮 Play the game",
+    sortNew:"Newest", sortTop:"Top rated", sortMedia:"With media", modalTitle:"Write a review",
+    modalSub:"No login needed! Add a photo and your review might be featured on Instagram 📸",
+    fRating:"Rating", fNick:"Nickname", fBody:"Your review", fMedia:"Photo / Video (optional)",
+    dropMain:"📷 Add a photo (video too)", dropHint:"Photo preferred · photo ≤10MB / video ≤50MB",
+    submit:"Post review", noteSpam:"One review per device per cooldown period.",
+    capTitle:"Instagram card", capSub:"Save as PNG for your story, post, or reel.", capSave:"📥 Save image",
+    empty:"No reviews yet. Be the first! 🥊", card:"📸 Card", share:"🔗 Share",
+    okSubmit:"Review posted! Thank you 🥊", errCooldown:"Please wait before posting again (spam protection).",
+    errFields:"Please fill rating, nickname and review.", errBig:"File too large.", uploading:"Posting...",
+    copied:"Link copied!" }
+};
+let LANG = localStorage.getItem('rf_lang') || 'ko';  // 한국어가 기본, 토글로 영어 전환
+function t(k){ return (I18N[LANG]&&I18N[LANG][k])||k; }
+function applyLang(){
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const k = el.getAttribute('data-i18n'); el.innerHTML = t(k);
+  });
+  document.getElementById('langBtn').textContent = LANG==='ko'?'EN':'한';
+  render();
+}
+
+/* ============ Data layer: Supabase OR demo(localStorage) ============ */
+const CONFIGURED = !SUPABASE_URL.includes('YOUR_PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR_ANON');
+let sb = null;
+if (CONFIGURED) sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const Store = {
+  async list(){
+    if (CONFIGURED){
+      const { data, error } = await sb.from('reviews').select('*').order('created_at',{ascending:false}).limit(300);
+      if (error){ console.error(error); return []; }
+      return data;
+    } else {
+      return JSON.parse(localStorage.getItem('rf_reviews')||'[]');
+    }
+  },
+  async add(r, file){
+    let media_url=null, media_type=null;
+    if (file){
+      media_type = file.type.startsWith('video')?'video':'image';
+      if (CONFIGURED){
+        const path = Date.now()+'_'+Math.random().toString(36).slice(2)+'_'+file.name.replace(/[^\w.\-]/g,'');
+        const { error:upErr } = await sb.storage.from('review-media').upload(path, file, {cacheControl:'3600'});
+        if (upErr) throw upErr;
+        media_url = sb.storage.from('review-media').getPublicUrl(path).data.publicUrl;
+      } else {
+        media_url = await fileToDataURL(file); // demo only
+      }
+    }
+    const row = { nickname:r.nickname, rating:r.rating, body:r.body, media_url, media_type, device_id:deviceId() };
+    if (CONFIGURED){
+      const { error } = await sb.from('reviews').insert(row); if (error) throw error;
+    } else {
+      const all = JSON.parse(localStorage.getItem('rf_reviews')||'[]');
+      row.id = crypto.randomUUID(); row.created_at = new Date().toISOString();
+      all.unshift(row); localStorage.setItem('rf_reviews', JSON.stringify(all));
+    }
+  }
+};
+function fileToDataURL(f){ return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(f);}); }
+function deviceId(){ let d=localStorage.getItem('rf_device'); if(!d){d=crypto.randomUUID();localStorage.setItem('rf_device',d);} return d; }
+
+/* ============ Render ============ */
+let REVIEWS = [], SORT='new';
+function fmtDate(s){ const d=new Date(s); return d.toLocaleDateString(LANG==='ko'?'ko-KR':'en-US',{month:'short',day:'numeric'}); }
+function stars(n){ return '★★★★★'.slice(0,n)+'☆☆☆☆☆'.slice(0,5-n); }
+function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function sorted(){
+  let a=[...REVIEWS];
+  if(SORT==='top') a.sort((x,y)=>y.rating-x.rating || new Date(y.created_at)-new Date(x.created_at));
+  else if(SORT==='media') a=a.filter(r=>r.media_url);
+  else a.sort((x,y)=>new Date(y.created_at)-new Date(x.created_at));
+  return a;
+}
+function render(){
+  const feed=document.getElementById('feed');
+  document.getElementById('statCount').textContent = REVIEWS.length;
+  document.getElementById('statAvg').textContent = REVIEWS.length? (REVIEWS.reduce((s,r)=>s+r.rating,0)/REVIEWS.length).toFixed(1) : '–';
+  const list=sorted();
+  if(!list.length){ feed.innerHTML='<div class="empty">'+t('empty')+'</div>'; return; }
+  feed.innerHTML = list.map(r=>{
+    let media='';
+    if(r.media_url){
+      media = r.media_type==='video'
+        ? '<video class="media-vid" src="'+esc(r.media_url)+'" controls preload="metadata"></video>'
+        : '<img class="media" src="'+esc(r.media_url)+'" loading="lazy" alt="">';
+    }
+    return '<div class="card">'+media+'<div class="body">'+
+      '<div class="crow"><div class="who"><div class="ava">'+esc((r.nickname||'?')[0].toUpperCase())+'</div>'+
+      '<div><div class="nick">'+esc(r.nickname)+'</div><div class="date">'+fmtDate(r.created_at)+'</div></div></div>'+
+      '<div class="stars">'+stars(r.rating)+'</div></div>'+
+      '<div class="text">'+esc(r.body)+'</div>'+
+      '<div class="foot"><button class="mini" onclick=\'openCap('+JSON.stringify(r.id)+')\'>'+t('card')+'</button>'+
+      '<button class="mini" onclick=\'shareReview('+JSON.stringify(r.id)+')\'>'+t('share')+'</button></div>'+
+      '</div></div>';
+  }).join('');
+}
+
+/* ============ Submit ============ */
+let pickRating=0, pickFile=null;
+const $=(id)=>document.getElementById(id);
+function openModal(){ $('writeModal').classList.add('open'); }
+function closeModals(){ document.querySelectorAll('.modal').forEach(m=>m.classList.remove('open')); }
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeModals);
+document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m) closeModals(); }));
+['writeTop','writeHero','writeFab'].forEach(id=>$(id).addEventListener('click',e=>{e.preventDefault();openModal();}));
+
+$('starpick').addEventListener('click',e=>{
+  if(e.target.dataset.v){ pickRating=+e.target.dataset.v;
+    [...$('starpick').children].forEach((s,i)=>s.classList.toggle('on', i<pickRating)); }
+});
+$('drop').addEventListener('click',()=>$('file').click());
+$('file').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const isVid=f.type.startsWith('video');
+  const max=isVid?50*1024*1024:10*1024*1024;
+  if(f.size>max){ toast(t('errBig')); $('file').value=''; return; }
+  pickFile=f;
+  const url=URL.createObjectURL(f);
+  $('previewImg').style.display=isVid?'none':'block';
+  $('previewVid').style.display=isVid?'block':'none';
+  if(isVid) $('previewVid').src=url; else $('previewImg').src=url;
+});
+
+function cooldownLeft(){
+  const last=+localStorage.getItem('rf_last')||0;
+  const left = REVIEW_COOLDOWN_HOURS*3600*1000 - (Date.now()-last);
+  return left>0?left:0;
+}
+
+$('reviewForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  if($('website').value){ closeModals(); return; }          // honeypot tripped
+  const nick=$('nick').value.trim(), body=$('body').value.trim();
+  if(!pickRating||!nick||!body){ toast(t('errFields')); return; }
+  if(cooldownLeft()>0){ toast(t('errCooldown')); return; }
+  const btn=$('submitBtn'); btn.disabled=true; const old=btn.textContent; btn.textContent=t('uploading');
+  try{
+    await Store.add({nickname:nick, rating:pickRating, body}, pickFile);
+    localStorage.setItem('rf_last', Date.now());
+    REVIEWS = await Store.list();
+    closeModals(); resetForm(); render(); toast(t('okSubmit'));
+  }catch(err){ console.error(err); toast('⚠️ '+(err.message||'error')); }
+  finally{ btn.disabled=false; btn.textContent=old; }
+});
+function resetForm(){ $('reviewForm').reset(); pickRating=0; pickFile=null;
+  [...$('starpick').children].forEach(s=>s.classList.remove('on'));
+  $('previewImg').style.display='none'; $('previewVid').style.display='none'; }
+
+/* ============ Sort chips ============ */
+document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{
+  document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active'); SORT=c.dataset.sort; render();
+}));
+
+/* ============ Instagram card export ============ */
+function openCap(id){
+  const r=REVIEWS.find(x=>x.id===id); if(!r) return;
+  const stage=$('capStage');
+  stage.innerHTML =
+    '<div class="capcard" id="capCard">'+
+      '<span class="ribbon">PLAYER REVIEW</span>'+
+      '<div class="capstars">'+stars(r.rating)+'</div>'+
+      '<div class="captext">"'+esc(r.body)+'"</div>'+
+      '<div class="capwho"><div class="capava">'+esc((r.nickname||'?')[0].toUpperCase())+'</div>'+
+      '<div class="capnick">@'+esc(r.nickname)+'</div></div>'+
+      '<div class="capbrand">★ '+r.rating.toFixed(1)+'</div>'+
+      '<div class="caplogo" style="margin-top:60px"><span class="hl">RISING</span>-FIGHTER</div>'+
+    '</div>';
+  // scale 1080px card down to fit modal
+  const card=$('capCard'); const scale=Math.min(1, 380/1080);
+  card.style.transform='scale('+scale+')';
+  stage.style.height=(card.offsetHeight*scale)+'px';
+  $('capModal').classList.add('open');
+}
+$('capSave').addEventListener('click', async ()=>{
+  const card=$('capCard'); if(!card) return;
+  const prev=card.style.transform; card.style.transform='scale(1)';
+  const canvas=await html2canvas(card,{backgroundColor:null,scale:1,useCORS:true});
+  card.style.transform=prev;
+  const a=document.createElement('a'); a.download='rising-fighter-review.png'; a.href=canvas.toDataURL('image/png'); a.click();
+});
+
+function shareReview(id){
+  const url=location.origin+location.pathname+'#r='+id;
+  if(navigator.share){ navigator.share({title:'Rising-fighter review', url}); }
+  else { navigator.clipboard.writeText(url); toast(t('copied')); }
+}
+
+/* ============ misc ============ */
+function toast(msg){ const el=$('toast'); el.textContent=msg; el.style.display='block'; setTimeout(()=>el.style.display='none',2600); }
+$('langBtn').addEventListener('click',()=>{ LANG=LANG==='ko'?'en':'ko'; localStorage.setItem('rf_lang',LANG); applyLang(); });
+$('playBtn').href = BETA_URL;
+
+(async function init(){
+  if(!CONFIGURED){ const b=$('demoBanner'); b.style.display='block';
+    b.textContent = (LANG==='ko'
+      ? '⚙️ 데모 모드 — 후기가 이 브라우저에만 저장됩니다. Supabase 키를 넣으면 실서비스가 됩니다 (SETUP 가이드 참고).'
+      : '⚙️ Demo mode — reviews are stored only in this browser. Add Supabase keys to go live.'); }
+  applyLang();
+  REVIEWS = await Store.list();
+  render();
+})();
+</script>
+</body>
+</html>
