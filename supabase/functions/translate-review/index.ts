@@ -15,11 +15,14 @@ const CORS = {
 const json = (o: unknown, status = 200) =>
   new Response(JSON.stringify(o), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
 
+// 언어 판별은 **본문만** 본다(2026-09-25 백필에서 닉네임 'Typhoon' + 본문 한국어가 'en' 으로 잘못 잡혀 번역이 건너뛰어짐).
+//  한글이 한 글자라도 있으면 ko — 한국어 후기에 영문 게임 용어가 섞이는 경우가 그 반대보다 훨씬 흔하다.
 function guessLang(s: string): 'ko' | 'en' | 'other' {
   const ko = (s.match(/[가-힣]/g) || []).length
   const en = (s.match(/[A-Za-z]/g) || []).length
-  if (ko === 0 && en === 0) return 'other'
-  return ko >= en ? 'ko' : 'en'
+  if (ko > 0) return 'ko'
+  if (en > 0) return 'en'
+  return 'other'
 }
 
 async function translate(nick: string, body: string, target: 'en' | 'ko', key: string) {
@@ -78,7 +81,7 @@ Deno.serve(async (req: Request) => {
     const cachedBody = (r as Record<string, string | null>)[bodyCol]
     const cachedNick = (r as Record<string, string | null>)[nickCol]
     if (cachedBody && cachedNick) { items.push({ id: r.id, nick: cachedNick, body: cachedBody, cached: true }); continue }
-    const lang = r.lang ?? guessLang(r.body + ' ' + r.nickname)
+    const lang = r.lang ?? guessLang(r.body)
     let nick = r.nickname, body = r.body
     if (lang !== target && !(lang === 'other')) {
       if (!key) { missingKey = true; items.push({ id: r.id, nick, body, cached: false }); continue }
