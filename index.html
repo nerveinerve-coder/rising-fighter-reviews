@@ -308,9 +308,21 @@ const Store = {
     if (CONFIGURED){
       // 번역 캐시 컬럼(lang, body_en/nick_en, body_ko/nick_ko)까지 함께 읽는다.
       const COLS = 'id, created_at, nickname, rating, body, media_url, media_type, lang, body_en, nick_en, body_ko, nick_ko';
-      const { data, error } = await sb.from('reviews').select(COLS).order('created_at',{ascending:false}).limit(300);
-      if (error){ console.error(error); return []; }
-      return data;
+      // 전체 후기를 끝까지 읽는다. 서버(PostgREST)가 한 번에 최대 1000행만 주므로 1000행씩 이어 받는다.
+      // (예전엔 .limit(300) 고정이라 300개 초과분이 집계에서 빠졌다 — 2026-10-12 수정)
+      const PAGE = 1000, MAX_PAGES = 20;                      // 안전 상한 2만 건
+      const all = [];
+      for (let i = 0; i < MAX_PAGES; i++){
+        const from = i*PAGE, to = from + PAGE - 1;
+        const { data, error } = await sb.from('reviews').select(COLS)
+          .order('created_at',{ascending:false}).order('id',{ascending:false})   // 같은 시각 행도 순서 고정
+          .range(from, to);
+        if (error){ console.error(error); break; }
+        if (!data || !data.length) break;
+        all.push(...data);
+        if (data.length < PAGE) break;
+      }
+      return all;
     } else {
       return JSON.parse(localStorage.getItem('rf_reviews')||'[]');
     }
